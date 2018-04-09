@@ -87,7 +87,29 @@ summary(loans.m2)
 loans2<-subset(loans,select = c(default, income_range_description , scorex , total_inquiries , 
     month , listing_term , monthly_debt , weekday , total_open_revolving_accounts , 
     lender_indicator , was_delinquent_derog , inquiries_last6_months , amount_funded))
-library()
+loans2$default<-factor(loans2$default)
+```
+REGRESSION ANALYSIS
+
+
+```{r}
+#KNN
+library(caret)
+library(gmodels)
+library(class)
+loans2<-as.data.frame(model.matrix(~.-1,data=loans2))
+loans2$default0<-NULL
+set.seed(12345)
+loans_rand <- loans2[order(runif(33300)), ]
+loans2_train<-loans2[1:23310,]
+loans2_test<-loans2[23311:33300,]
+loans2_train_labels<-loans2[1:23310,1]
+loans2_test_labels<-loans2[23311:33300,1]
+
+loans2_knn<-knn(train = loans2_train,test = loans2_test, cl=loans2_train_labels)
+CrossTable(x=loans2_test_labels,y=loans2_knn, prop.chisq = F)
+
+
 
 ```
 
