@@ -66,7 +66,7 @@ loans$listing_category_id<-NULL
 
 ```
 DATA CLEANING
-  After loading the data set and examining its structure and a summary of each variable some discrepancies were found. There was duplicate varaibles for the loan status and income range values, the versions that contained more complete information were then selected and the other verisons removed. There were non sensical values that needed to be investigated including values of 1000000 in DTI ratios (found to mean income not verifiable or income is 0 and therefore the ratio goes to infinity) and negative Months of employment for people listed as employed (no significant understanding found). Thus far, it has been decided that 1000000 is a reasonable representation of infinity and therefore it will remain (for now). To handle negative months of employment, the absolute value of these numbers was taken to remove thier negative effect (IDK if this is the right approach). I had a question about bankcard utilization and how it is calculated... Can bankcard utiliation be greater than 1? To get a better sense of this datas significance, a linear regression will be utilized.
+  After loading the data set and examining its structure and a summary of each variable some discrepancies were found. There was duplicate varaibles for the loan status and income range values, the versions that contained more complete information were then selected and the other verisons removed. There were non sensical values that needed to be investigated including values of 1000000 in DTI ratios (found to mean income not verifiable or income is 0 and therefore the ratio goes to infinity) and negative Months of employment for people listed as employed (no significant understanding found). Thus far, it has been decided that 1000000 is a reasonable representation of infinity and therefore it will remain (for now). To handle negative months of employment, the absolute value of these numbers was taken to remove thier negative effect (IDK if this is the right approach). Additionally, all data that was deemed "unknown" at time of assigning interest rate were removed. This includes, number of days, borrower rate, and monthly payment. Also removed were scores and rating provided by the loan service that might alter how other, "real" credit measure are interpreted in the model, these included propser rating, prosper score, and listing category ID. The Remaining data was then put into a logistic regression. 
 
 ```{r}
 #Linear Regression
@@ -90,13 +90,16 @@ loans2<-subset(loans,select = c(default, income_range_description , scorex , tot
 loans2$default<-factor(loans2$default)
 ```
 REGRESSION ANALYSIS
-
+  the initial, full logistic regression resulted in few signifigant predictors, suggesting that certain variables be removed. While we had some knowledge of what financial predictors may be helpful in determining default probability, we determined it would be better to statistically evaluate significane of each predictor and remove variables as needed, then assess the validity of the result. A stepwise regression was then performed in both directions to determine the best predictors to include in the model to reach maximum significance. They included thirteen variables that encompassed properties of many other variables in the data set (i.e. income_range_description includes informaiton from occupation and stated income). This submodel also has the lowest AIC of any combination of variables in the original full model, suggesting it is a better indicator of default probability. Thes varibales were then transfered to a new data frame to be fed into preciditive models.
 
 ```{r}
 #KNN
 library(caret)
 library(gmodels)
 library(class)
+#Check Composition
+table(loans2$default) #Defaults are rouglhy 4.5%
+
 loans2<-as.data.frame(model.matrix(~.-1,data=loans2))
 loans2$default0<-
 set.seed(12345)
@@ -105,7 +108,8 @@ loans2_train<-loans2[1:23310,]
 loans2_test<-loans2[23311:33300,]
 loans2_train_labels<-loans2[1:23310,1]
 loans2_test_labels<-loans2[23311:33300,1]
-
+table(loans2_test$default1) #Defaults are rouglhy 3.8%
+table(loans2_train$default1) #Defaults are rouglhy 4.9%
 loans2_knn<-knn(train = loans2_train,test = loans2_test, cl=loans2_train_labels)
 CrossTable(x=loans2_test_labels,y=loans2_knn, prop.chisq = F)
 confusionMatrix(loans2_knn,loans2_test$default1, positive = '1')
@@ -114,6 +118,7 @@ confusionMatrix(loans2_knn,loans2_test$default1, positive = '1')
 loans2_knn_low<-knn(train = loans2_train,test = loans2_test, cl=loans2_train_labels, k=5)
 confusionMatrix(loans2_knn_low,loans2_test$default1, positive = '1')
 
+#Try 
 
 
 ```
