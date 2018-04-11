@@ -90,7 +90,6 @@ hist(loansDefualted$credit_age) #Approximatley normally distributed with largest
 
 
 
-
 ```
 DATA CLEANING
   After loading the data set and examining its structure and a summary of each variable some discrepancies were found. There was duplicate varaibles for the loan status and income range values, the versions that contained more complete information were then selected and the other verisons removed. There were non sensical values that needed to be investigated including values of 1000000 in DTI ratios (found to mean income not verifiable or income is 0 and therefore the ratio goes to infinity) and negative Months of employment for people listed as employed (no significant understanding found). Thus far, it has been decided that 1000000 is a reasonable representation of infinity and therefore it will remain (for now). To handle negative months of employment, the absolute value of these numbers was taken to remove thier negative effect (IDK if this is the right approach). Additionally, all data that was deemed "unknown" at time of assigning interest rate were removed. This includes, number of days, borrower rate, and monthly payment. Also removed were scores and rating provided by the loan service that might alter how other, "real" credit measure are interpreted in the model, these included propser rating, prosper score, and listing category ID. The Remaining data was then put into a logistic regression. 
@@ -144,6 +143,21 @@ confusionMatrix(loans2_knn,loans2_test$default1, positive = '1')
 #Lets Try a Low k
 loans2_knn_low<-knn(train = loans2_train,test = loans2_test, cl=loans2_train_labels, k=5)
 confusionMatrix(loans2_knn_low,loans2_test$default1, positive = '1')
+
+#ANN 
+Default_neuralnetwork <- neuralnet(default~amount_funded + listing_term + scorex + income_range_description + stated_monthly_income + income_verifiable + dti_wprosper_loan + dti_wprosper_loan +employment_status_description + occupation + months_employed + lender_indicator + monthly_debt + current_delinquencies + delinquencies_last7_years + public_records_last10_years + public_records_last12_months + credit_lines_last7_years + inquiries_last6_months + amount_delinquent + current_credit_lines + open_credit_lines + bankcard_utilization + total_open_revolving_accounts + installment_balance + real_estate_balance + revolving_balance + real_estate_payment + revolving_available_percent + total_inquiries + total_trade_items + satisfactory_accounts + now_delinquent_derog + was_delinquent_derog + delinquencies_over30_days + delinquencies_over60_days + delinquencies_over90_days + is_homeowner + +credit_age, data = loans2_train, stepmax =1e07)
+
+model_results <- compute(Default_neuralnetwork, loans2_test[1:40])
+
+predicted_yes <- ifelse(model_results$net.result > 0.5, 1, 0)
+
+CrossTable(x = loans2_test_labels, y = predicted_yes, 
+           prop.chisq=FALSE)
+
+confusionMatrix(predicted_yes, loans2_test_labels)
+
+
+
 
 #Try 
 
