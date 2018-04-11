@@ -75,6 +75,7 @@ loans$listing_category_id<-NULL
 #Data Exploration
 loansDefualted<-subset(loans,loans$default==1) #Only Defaulted Loans
 
+library(dplyr)
 plot(loansDefualted$scorex, main = "Default vs Scorex", xlab = "Scorex", ylab = "Number of Defaults", cex.names = 0.7) #Largest proportion of defaulted loans comes from Mid Score range, and then high scores posibbly becauase loans arent typically given to people with lower scores 
 
 plot(loans$scorex, main = "Number of Loans vs Scorex", xlab = "Scorex", ylab = "Number of Loans", cex.names = 0.7) #Most loans are only for high credit score borrowers
@@ -93,11 +94,11 @@ hist(loansDefualted$bankcard_utilization, main = "Default vs Card Utilization", 
 
 hist(loansDefualted$total_inquiries, main = "Default vs Inquiry", xlab = "Number of Inquiries Checked", ylab = "Number of Defaults") #People with fewer credit checks make a larger proportion of people who default
 
-hist(loansDefualted$month, main = "Default vs Starting Month", xlab = "Starting Month", ylab = "Number of Defaults")
-axis(side = 1, at = seq(1, 12, by = 1), labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Oct", "Nov", "Dec"))
+hist(loansDefualted$month, main = "Default vs Starting Month", xlab = "Starting Month", ylab = "Number of Defaults", xaxt = "n")%>%
+axis(side = 1, at = seq(1, 12, by = 1), labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
 #September is a big month to start defaulted loans ... students?
 
-hist(loansDefualted$credit_age) #Approximatley normally distributed with largest proportion around 5000 days of credit
+hist(loansDefualted$credit_age, main = "Default vs Credit Age", xlab = "Credit Age in Days", ylab = "Number of Defaults") #Approximatley normally distributed with largest proportion around 5000 days of credit
 
 
 
