@@ -67,7 +67,11 @@ loans$listing_category_id<-NULL
 #Data Exploration
 loansDefualted<-subset(loans,loans$default==1) #Only Defaulted Loans
 plot(loansDefualted$scorex) #Largest proportion of defaulted loans comes from Mid Score range, and then high scores posibbly becauase loans arent typically given to people with lower scores 
+plot(loans$scorex) #Most loans are only for high credit score borrowers
+
 plot(loansDefualted$income_range_description) #Againt, most defaults come from mid income range, is this because loans not typically given to low income?
+plot(loans$income_range_description)#Confirmed, only loans given to higher income borrowers
+
 plot(loansDefualted$employment_status_description) #Highest priority of Defualted Loans comes From Employed or Other
 plot(loansDefualted$lender_indicator) #Very Few Lenders default on laons, this will likely be a significant factor
 hist(loansDefualted$delinquencies_over90_days) #No significant difference among 30,60,90 days
