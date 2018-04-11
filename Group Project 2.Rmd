@@ -108,6 +108,7 @@ hist(loansDefualted$credit_age) #Approximatley normally distributed with largest
 
 ```{r}
 #Logistic Regression
+library(caret)
 library(lmtest)
 loans.m1<-glm(formula = default ~ . , data = loans)
 summary(loans.m1) #Need to so some removing of conflicting variables
@@ -125,17 +126,20 @@ summary(loans.m2)
 loans2<-subset(loans,select = c(default, income_range_description , scorex , total_inquiries , 
     month , listing_term , monthly_debt , weekday , total_open_revolving_accounts , 
     lender_indicator , was_delinquent_derog , inquiries_last6_months , amount_funded))
+
 loans2$default<-factor(loans2$default)
 
 #Predicting Outcome
 library(VGAM)
 set.seed(123)
-loans_random <- loans[sample(nrow(loans)), ]
-loans_train <- loans[1:23310, ]
-loans_test <- loans[23311:33300, ]
-
-predict <- predict(loans.m2, newdata = loans_test, type = "response")
-
+loans_random <- loans2[sample(nrow(loans2)), ]
+loans_train <- loans2[1:23310, ]
+loans_test <- loans2[23311:33300, ]
+loans.m3<-glm(formula = default ~ ., data = loans_train, family = 'binomial')
+summary(loans.m3)
+predict <- predict(loans.m3, newdata = loans_test, type = "response")
+predict<-ifelse(predict>.05,1,0)
+confusionMatrix(predict,loans_test$default)
 ```
 
 ###REGRESSION ANALYSIS
@@ -150,7 +154,6 @@ library(class)
 table(loans2$default) #Defaults are rouglhy 4.5%
 
 loans2<-as.data.frame(model.matrix(~.-1,data=loans2))
-loans2$default0<-
 set.seed(12345)
 loans_rand <- loans2[order(runif(33300)), ]
 loans2_train<-loans2[1:23310,]
@@ -168,21 +171,47 @@ loans2_knn_low<-knn(train = loans2_train,test = loans2_test, cl=loans2_train_lab
 confusionMatrix(loans2_knn_low,loans2_test$default1, positive = '1')
 
 #ANN 
-Default_neuralnetwork <- neuralnet(default~amount_funded + listing_term + scorex + income_range_description + stated_monthly_income + income_verifiable + dti_wprosper_loan + dti_wprosper_loan +employment_status_description + occupation + months_employed + lender_indicator + monthly_debt + current_delinquencies + delinquencies_last7_years + public_records_last10_years + public_records_last12_months + credit_lines_last7_years + inquiries_last6_months + amount_delinquent + current_credit_lines + open_credit_lines + bankcard_utilization + total_open_revolving_accounts + installment_balance + real_estate_balance + revolving_balance + real_estate_payment + revolving_available_percent + total_inquiries + total_trade_items + satisfactory_accounts + now_delinquent_derog + was_delinquent_derog + delinquencies_over30_days + delinquencies_over60_days + delinquencies_over90_days + is_homeowner + +credit_age, data = loans2_train, stepmax =1e07)
 
-model_results <- compute(Default_neuralnetwork, loans2_test[1:40])
+loans3_test <- loans[sample(nrow(loans), 9989),]
+loans3_train <- loans[sample(nrow(loans), 23310),]
+loans3_test_label <- loans[sample(nrow(loans), 9989), 41]
+loans3_train_label <- loans[sample(nrow(loans), 23310), 41]
+
+Default_neuralnetwork <- neuralnet(default~amount_funded + listing_term + scorex + income_range_description + stated_monthly_income + income_verifiable + dti_wprosper_loan + dti_wprosper_loan +employment_status_description + occupation + months_employed + lender_indicator + monthly_debt + current_delinquencies + delinquencies_last7_years + public_records_last10_years + public_records_last12_months + credit_lines_last7_years + inquiries_last6_months + amount_delinquent + current_credit_lines + open_credit_lines + bankcard_utilization + total_open_revolving_accounts + installment_balance + real_estate_balance + revolving_balance + real_estate_payment + revolving_available_percent + total_inquiries + total_trade_items + satisfactory_accounts + now_delinquent_derog + was_delinquent_derog + delinquencies_over30_days + delinquencies_over60_days + delinquencies_over90_days + is_homeowner + month, data = loans3_train, stepmax =1e07)
+
+model_results <- compute(Default_neuralnetwork, loans3_test[1:38])
 
 predicted_yes <- ifelse(model_results$net.result > 0.5, 1, 0)
 
-CrossTable(x = loans2_test_labels, y = predicted_yes, 
+CrossTable(x = loans3_test_label, y = predicted_yes, 
            prop.chisq=FALSE)
 
-confusionMatrix(predicted_yes, loans2_test_labels)
+confusionMatrix(predicted_yes, loans3_test_label)
 
+library(kernlab)
+default_classifier <- ksvm(default~ ., data = loans3_train,
+                          kernel = "vanilladot")
+default_predictions <- predict(default_classifier, loans3_test)
 
+head(default_predictions)
+table(default_predictions, loans3_test$default)
 
+agreement <- default_predictions == loans3_test$default
+table(agreement)
+prop.table(table(agreement))
 
-#Try 
+#SVM
+library(kernlab)
+library(caret)
+
+loan.svm1<-ksvm(default1 ~ . , data=loans2_train, kernel = 'vanilladot')
+loan_predict1<-predict(loan.svm1, loans2_test)
+confusionMatrix(loan_predict1,loans2_test$default1)
+
+hr.svm2<-ksvm(left1 ~ . , data=hr_train, kernel = 'rbfdot')
+hr_predict2<-predict(hr.svm2,hr_test)
+confusionMatrix(hr_predict2,hr_test$left1)
+
 
 
 ```
