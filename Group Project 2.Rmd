@@ -109,14 +109,13 @@ hist(loansDefualted$credit_age, main = "Default vs Credit Age", xlab = "Credit A
 
 ```{r}
 #Logistic Regression
-library(caret)
 library(lmtest)
 loans.m1<-glm(formula = default ~ . , data = loans)
 summary(loans.m1) #Need to so some removing of conflicting variables
 
 full<-glm(formula = default~.,data=loans)
 null<-glm(formula = default~1,data = loans)
-forwardSteps<-step(null,scope = list(lower = null, upper = full),data = loans, direction = 'both')
+#forwardSteps<-step(null,scope = list(lower = null, upper = full),data = loans, direction = 'both')
 
 loans.m2<-glm(formula = default ~ income_range_description + scorex + total_inquiries + 
     month + listing_term + monthly_debt + weekday + total_open_revolving_accounts + 
@@ -130,17 +129,6 @@ loans2<-subset(loans,select = c(default, income_range_description , scorex , tot
 
 loans2$default<-factor(loans2$default)
 
-#Predicting Outcome
-library(VGAM)
-set.seed(123)
-loans_random <- loans2[sample(nrow(loans2)), ]
-loans_train <- loans2[1:23310, ]
-loans_test <- loans2[23311:33300, ]
-loans.m3<-glm(formula = default ~ ., data = loans_train, family = 'binomial')
-summary(loans.m3)
-predict <- predict(loans.m3, newdata = loans_test, type = "response")
-predict<-ifelse(predict>.05,1,0)
-confusionMatrix(predict,loans_test$default)
 ```
 
 ###REGRESSION ANALYSIS
