@@ -74,27 +74,22 @@ loans$prosper_score<-NULL
 loans$listing_category_id<-NULL
 #Data Exploration
 loansDefualted<-subset(loans,loans$default==1) #Only Defaulted Loans
-plot(loansDefualted$scorex) #Largest proportion of defaulted loans comes from Mid Score range, and then high scores posibbly becauase loans arent typically given to people with lower scores 
-plot(loans$scorex) #Most loans are only for high credit score borrowers
+plot(loansDefualted$scorex, main = "Default vs Scorex", xlab = "Scorex", ylab = "Number of Defaults") #Largest proportion of defaulted loans comes from Mid Score range, and then high scores posibbly becauase loans arent typically given to people with lower scores 
 
-plot(loansDefualted$income_range_description) #Againt, most defaults come from mid income range, is this because loans not typically given to low income?
-plot(loans$income_range_description)#Confirmed, only loans given to higher income borrowers
+plot(loans$scorex, main = "Number of Loans vs Scorex", xlab = "Scorex", ylab = "Number of Loans") #Most loans are only for high credit score borrowers
 
-plot(loansDefualted$employment_status_description) #Highest priority of Defualted Loans comes From Employed or Other
+plot(loansDefualted$income_range_description, main = "Default vs Income", xlab = "Income Range", ylab = "Number of Defaults") #Again, most defaults come from mid income range, is this because loans not typically given to low income?
+
+plot(loans$income_range_description, main = "Number of Loans vs Income", xlab = "Income Range", ylab = "Number of Loans")#Confirmed, only loans given to higher income borrowers
+
+plot(loansDefualted$employment_status_description, main = "Default vs Employment", xlab = "Employment Status", ylab = "Number of Defaults") #Highest priority of Defaulted Loans comes from Employed or Other
+
 plot(loansDefualted$lender_indicator) #Very Few Lenders default on laons, this will likely be a significant factor
 hist(loansDefualted$delinquencies_over90_days) #No significant difference among 30,60,90 days
 hist(loansDefualted$bankcard_utilization) #borrowers with higher card utilization make a higher proportion of defaulted laons
 hist(loansDefualted$total_inquiries) #People with fewer credit checks make a larger proportion of people who default
 hist(loansDefualted$month) #September is a big month to start defaulted loans ... students?
 hist(loansDefualted$credit_age) #Approximatley normally distributed with largest proportion around 5000 days of credit
-
-
-
-
-
-
-
-
 
 
 
@@ -107,7 +102,7 @@ hist(loansDefualted$credit_age) #Approximatley normally distributed with largest
 #Logistic Regression
 library(lmtest)
 loans.m1<-glm(formula = default ~ . , data = loans)
-summary(loans.m1) #Need to so some removing of conflicting varaibles
+summary(loans.m1) #Need to so some removing of conflicting variables
 
 full<-glm(formula = default~.,data=loans)
 null<-glm(formula = default~1,data = loans)
