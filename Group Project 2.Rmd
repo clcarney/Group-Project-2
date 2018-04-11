@@ -1,15 +1,23 @@
 ---
-title: "Loan_Defaults"
-author: "ChrisCarney_LisaStimpson_JaeChoi_YiHan_NiklasRikala"
+title: "Project Group 2 Loan Defaults Analysis"
+author: "Chris Carney, Jae Woo Choi, Yi Han, Niklas Rikala, Lisa Stimpson"
 date: "4/7/2018"
-output: html_document
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(cache = TRUE)
 ```
-INTRO
-  The objective of this analysis is to utilize data sourced from a peer-to-peer lending service to reliably determine when a borrower will default on a loan. In order to achieve this, the data must be examined, subjectivley and objectivley, with an understanding of loans and basic finance to determine which factors will and will not be valuable to predicting loan defults. The data consists of 52 variables regarding information about the borrowers current and past financial, credit, residential, and employment history.First we will examine and clean the data. 
+
+###INTRO
+  
+  The objective of this analysis is to utilize data sourced from a peer-to-peer lending service to reliably determine when a borrower will default on a loan. In order to achieve this, the data must be examined, subjectivley and objectivley, with an understanding of loans and basic finance to determine which factors will and will not be valuable to predicting loan defults. The data consists of 52 variables regarding information about the borrowers current and past financial, credit, residential, and employment history.First we will examine and clean the data.
 
 ```{r}
 loans<-read.csv('Listings2013.csv')
@@ -66,13 +74,16 @@ loans$prosper_score<-NULL
 loans$listing_category_id<-NULL
 #Data Exploration
 loansDefualted<-subset(loans,loans$default==1) #Only Defaulted Loans
-plot(loansDefualted$scorex) #Largest proportion of defaulted loans comes from Mid Score range, and then high scores posibbly becauase loans arent typically given to people with lower scores 
-plot(loans$scorex) #Most loans are only for high credit score borrowers
+plot(loansDefualted$scorex, main = "Default vs Scorex", xlab = "Scorex", ylab = "Number of Defaults") #Largest proportion of defaulted loans comes from Mid Score range, and then high scores posibbly becauase loans arent typically given to people with lower scores 
 
-plot(loansDefualted$income_range_description) #Againt, most defaults come from mid income range, is this because loans not typically given to low income?
-plot(loans$income_range_description)#Confirmed, only loans given to higher income borrowers
+plot(loans$scorex, main = "Number of Loans vs Scorex", xlab = "Scorex", ylab = "Number of Loans") #Most loans are only for high credit score borrowers
 
-plot(loansDefualted$employment_status_description) #Highest priority of Defualted Loans comes From Employed or Other
+plot(loansDefualted$income_range_description, main = "Default vs Income", xlab = "Income Range", ylab = "Number of Defaults") #Again, most defaults come from mid income range, is this because loans not typically given to low income?
+
+plot(loans$income_range_description, main = "Number of Loans vs Income", xlab = "Income Range", ylab = "Number of Loans")#Confirmed, only loans given to higher income borrowers
+
+plot(loansDefualted$employment_status_description, main = "Default vs Employment", xlab = "Employment Status", ylab = "Number of Defaults") #Highest priority of Defaulted Loans comes from Employed or Other
+
 plot(loansDefualted$lender_indicator) #Very Few Lenders default on laons, this will likely be a significant factor
 hist(loansDefualted$delinquencies_over90_days) #No significant difference among 30,60,90 days
 hist(loansDefualted$bankcard_utilization) #borrowers with higher card utilization make a higher proportion of defaulted laons
@@ -82,23 +93,16 @@ hist(loansDefualted$credit_age) #Approximatley normally distributed with largest
 
 
 
-
-
-
-
-
-
-
-
 ```
-DATA CLEANING
+
+###DATA CLEANING
   After loading the data set and examining its structure and a summary of each variable some discrepancies were found. There was duplicate varaibles for the loan status and income range values, the versions that contained more complete information were then selected and the other verisons removed. There were non sensical values that needed to be investigated including values of 1000000 in DTI ratios (found to mean income not verifiable or income is 0 and therefore the ratio goes to infinity) and negative Months of employment for people listed as employed (no significant understanding found). Thus far, it has been decided that 1000000 is a reasonable representation of infinity and therefore it will remain (for now). To handle negative months of employment, the absolute value of these numbers was taken to remove thier negative effect (IDK if this is the right approach). Additionally, all data that was deemed "unknown" at time of assigning interest rate were removed. This includes, number of days, borrower rate, and monthly payment. Also removed were scores and rating provided by the loan service that might alter how other, "real" credit measure are interpreted in the model, these included propser rating, prosper score, and listing category ID. The Remaining data was then put into a logistic regression. 
 
 ```{r}
 #Logistic Regression
 library(lmtest)
 loans.m1<-glm(formula = default ~ . , data = loans)
-summary(loans.m1) #Need to so some removing of conflicting varaibles
+summary(loans.m1) #Need to so some removing of conflicting variables
 
 full<-glm(formula = default~.,data=loans)
 null<-glm(formula = default~1,data = loans)
@@ -115,8 +119,19 @@ loans2<-subset(loans,select = c(default, income_range_description , scorex , tot
     lender_indicator , was_delinquent_derog , inquiries_last6_months , amount_funded))
 
 loans2$default<-factor(loans2$default)
+
+#Predicting Outcome
+library(VGAM)
+set.seed(123)
+loans_random <- loans[sample(nrow(loans)), ]
+loans_train <- loans[1:23310, ]
+loans_test <- loans[23311:33300, ]
+
+predict <- predict(loans.m2, newdata = loans_test, type = "response")
+
 ```
-REGRESSION ANALYSIS
+
+###REGRESSION ANALYSIS
   the initial, full logistic regression resulted in few signifigant predictors, suggesting that certain variables be removed. While we had some knowledge of what financial predictors may be helpful in determining default probability, we determined it would be better to statistically evaluate significane of each predictor and remove variables as needed, then assess the validity of the result. A stepwise regression was then performed in both directions to determine the best predictors to include in the model to reach maximum significance. They included thirteen variables that encompassed properties of many other variables in the data set (i.e. income_range_description includes informaiton from occupation and stated income). This submodel also has the lowest AIC of any combination of variables in the original full model, suggesting it is a better indicator of default probability. Thes varibales were then transfered to a new data frame to be fed into preciditive models.
 
 ```{r}
