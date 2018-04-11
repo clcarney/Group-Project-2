@@ -69,7 +69,7 @@ DATA CLEANING
   After loading the data set and examining its structure and a summary of each variable some discrepancies were found. There was duplicate varaibles for the loan status and income range values, the versions that contained more complete information were then selected and the other verisons removed. There were non sensical values that needed to be investigated including values of 1000000 in DTI ratios (found to mean income not verifiable or income is 0 and therefore the ratio goes to infinity) and negative Months of employment for people listed as employed (no significant understanding found). Thus far, it has been decided that 1000000 is a reasonable representation of infinity and therefore it will remain (for now). To handle negative months of employment, the absolute value of these numbers was taken to remove thier negative effect (IDK if this is the right approach). I had a question about bankcard utilization and how it is calculated... Can bankcard utiliation be greater than 1? To get a better sense of this datas significance, a linear regression will be utilized.
 
 ```{r}
-#Linear Regression
+#Logistic Regression
 library(lmtest)
 loans.m1<-glm(formula = default ~ . , data = loans)
 summary(loans.m1) #Need to so some removing of conflicting varaibles
@@ -88,6 +88,16 @@ loans2<-subset(loans,select = c(default, income_range_description , scorex , tot
     month , listing_term , monthly_debt , weekday , total_open_revolving_accounts , 
     lender_indicator , was_delinquent_derog , inquiries_last6_months , amount_funded))
 loans2$default<-factor(loans2$default)
+
+#Predicting Outcome
+library(VGAM)
+set.seed(123)
+loans_random <- loans[sample(nrow(loans)), ]
+loans_train <- loans[1:23310, ]
+loans_test <- loans[23311:33300, ]
+
+predict <- predict(loans.m2, newdata = loans_test, type = "response")
+
 ```
 REGRESSION ANALYSIS
 
