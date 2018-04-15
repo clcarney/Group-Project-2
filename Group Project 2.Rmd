@@ -25,25 +25,14 @@ loans<-read.csv('Listings2013.csv')
 str(loans)
 summary(loans)
 #Duplicate Information
-  #loan_status-desription - Remove status because it hold less information
 loans$loan_status<-NULL
-  #income_range-description - Remove Range because it holds less information
 loans$income_range<-NULL
 #Non-sensical Values
-  #DTI--- 1000000 --- investigate
-dti_invest<-subset(loans,loans$dti_wprosper_loan==1000000)#DTI is set to 1000000 when Income Verifiable is False -- How do we handle this? Subsitute Stated income to calculate this?
-  #MonthsEmployed --- negative values?
-months_emp_invest<-subset(loans,loans$months_employed<0) #Doesn't make sence how should we handle this? Take absolute value?
+loans$dti_wprosper_loan[loans$dti_wprosper_loan>1]<-1
 loans$months_employed<-abs(loans$months_employed)
 summary(loans$months_employed)
-  #bankcard Utilization -- Can this value be over 1?
-  
 #Missing Values
-  #Installment Values
-installment_invest<-subset(loans,is.na(loans$installment_balance)) #How should we handle? Set to 0 if installments not available?
-months_NA_inv<-subset(loans,is.na(loans$months_employed)) #How do we handle these? Occupation is mostly Null Here
-loans<-na.omit(loans) #Removed for Now
-
+loans<-na.omit(loans) #Removed, only 0.2% of data set
 #Reformatting
 #Dates
 library(lubridate)
@@ -63,7 +52,9 @@ loans$listing_term<-factor(loans$listing_term)
 loans$borrower_city<-NULL
 loans$borrower_state<-NULL
 #Create Default variable
-loans$default<-ifelse(loans$loan_status_description=='DEFAULTED',1,0)
+loans$default<-ifelse(loans$loan_status_description=='DEFAULTED'|loans$loan_status_description=='CHARGEOFF',1,0)
+#Remove in Progress Loans -- Provide no information about Succesfull Payment or Defualts
+loans<-loans[!(loans$loan_status_description=='CURRENT'),]
 #Remove "unknown" data at time of interest rate determination, and data that we cannot interpret
 loans$number_of_days<-NULL
 loans$loan_status_description<-NULL
@@ -74,15 +65,24 @@ loans$prosper_rating<-NULL
 loans$prosper_score<-NULL
 loans$listing_category_id<-NULL
 
+
 #Observe Skew
 table(loans$default) #Defaults are only approx 4% of data --- We need to adjust for this.
 loans_completed<-subset(loans,loans$default==0)
 loansDefualted<-subset(loans,loans$default==1) #Only Defaulted Loans
 
-set.seed(999)
-loans_complete_skew<- loans_completed[order(runif(4000)), ]
-loans_new<-rbind(loans_complete_skew,loansDefualted)
-table(loans_new$default) #Now roughly 38%
+
+#Rescale
+normalize <- function(x) {
+  return((x-min(x)) / (max(x) - min(x)))
+}
+
+loans <- as_data_frame(lapply(loans, function(x) {
+  if((class(x[1]) != "numeric") & (class(x[1]) != "integer")) {
+    return (x)
+  }
+  return(normalize(x))
+}))
 ```
 ###DATA CLEANING
   After loading the data set and examining its structure and a summary of each variable some discrepancies were found. There was duplicate varaibles for the loan status and income range values, the versions that contained more complete information were then selected and the other verisons removed. There were non sensical values that needed to be investigated including values of 1000000 in DTI ratios (found to mean income not verifiable or income is 0 and therefore the ratio goes to infinity) and negative Months of employment for people listed as employed (no significant understanding found). Thus far, it has been decided that 1000000 is a reasonable representation of infinity and therefore it will remain (for now). To handle negative months of employment, the absolute value of these numbers was taken to remove thier negative effect (IDK if this is the right approach). Additionally, all data that was deemed "unknown" at time of assigning interest rate were removed. This includes, number of days, borrower rate, and monthly payment. Also removed were scores and rating provided by the loan service that might alter how other, "real" credit measure are interpreted in the model, these included propser rating, prosper score, and listing category ID. The Remaining data was then put into a logistic regression. 
@@ -90,12 +90,12 @@ table(loans_new$default) #Now roughly 38%
 #Data Exploration
 op<-par(mfrow=c(1,2))
 plot(loansDefualted$scorex, main = "Default vs Scorex", xlab = "Scorex", ylab = "Number of Defaults", cex.names = 0.7) #Largest proportion of defaulted loans comes from Mid Score range, and then high scores posibbly becauase loans arent typically given to people with lower scores 
-plot(loans_new$scorex, main = "Number of Loans vs Scorex", xlab = "Scorex", ylab = "Number of Loans", cex.names = 0.7) #Most loans are only for high credit score borrowers
+plot(loans$scorex, main = "Number of Loans vs Scorex", xlab = "Scorex", ylab = "Number of Loans", cex.names = 0.7) #Most loans are only for high credit score borrowers
 par(op)
 
 op<-par(mfrow=c(1,2))
 plot(loansDefualted$income_range_description, main = "Default vs Income", xlab = "Income Range", ylab = "Number of Defaults") #Again, most defaults come from mid income range, is this because loans not typically given to low income?
-plot(loans_new$income_range_description, main = "Number of Loans vs Income", xlab = "Income Range", ylab = "Number of Loans")#Confirmed, only loans given to higher income borrowers
+plot(loans$income_range_description, main = "Number of Loans vs Income", xlab = "Income Range", ylab = "Number of Loans")#Confirmed, only loans given to higher income borrowers
 par(op)
 
 op<-par(mfrow=c(3,2))
@@ -110,7 +110,7 @@ par(op)
 ```
 
 ```{r}
-#Linear Regression -- Copied From Class --- Need to Redo
+#Linear Regression -- Copied From Class --- Need to Redo #Do we have to keep this?
 listings<-read.csv('Listings2013.csv')
 str(listings)
 library(lubridate)
@@ -145,31 +145,35 @@ summary(listings2.m)
 #Logistic Regression
 library(lmtest)
 library(caret)
-loans.m1<-glm(formula = default ~ . , data = loans_new, family ='binomial')
-summary(loans.m1) #Need to so some removing of conflicting variables
+loans.m1<-glm(formula = default ~ . , data = loans, family ='binomial')
+summary(loans.m1) #Need to do some removing of conflicting variables
 
-full<-glm(formula = default~.,data = loans_new, family = 'binomial')
-null<-glm(formula = default~1,data = loans_new, family = 'binomial')
-forwardSteps<-step(null,scope = list(lower = null, upper = full),data = loans_new, direction = 'forward')
+full<-glm(formula = default~.,data = loans, family = 'binomial')
+null<-glm(formula = default~1,data = loans, family = 'binomial')
+forwardSteps<-step(null,scope = list(lower = null, upper = full),data = loans, direction = 'forward')
 
-loans2<-subset(loans_new,select = c(default, month, stated_monthly_income, listing_term, weekday, 
-    monthly_debt, lender_indicator, total_inquiries, public_records_last12_months, 
-    dti_wprosper_loan, income_verifiable))
+loans2<-subset(loans,select = c(default, scorex, listing_term, dti_wprosper_loan, income_verifiable,
+    income_range_description, lender_indicator, inquiries_last6_months,
+    credit_lines_last7_years, total_open_revolving_accounts, employment_status_description, current_delinquencies,    public_records_last12_months, is_homeowner, amount_funded, delinquencies_over60_days,  
+    installment_balance, stated_monthly_income, monthly_debt, open_credit_lines))
 
-#Split Data
+#Split Data - Make Bianry
+
 set.seed(12345)
-loans_rand <- loans2[order(runif(5538)), ]
-loans2_train<-loans_rand[1:3800,]
-loans2_test<-loans_rand[3801:5538,]
-table(loans2_test$default)
-table(loans2_train$default)
+loans_rand<- loans2[order(runif(17941)), ]
+loans_train<-loans_rand[1:12558,]
+loans_test<-loans_rand[12559:17941,]
+loans_train_labels<-loans_rand[1:12558,1]
+loans_test_labels<-loans_rand[12559:17941,1]
+table(loans_bi_test$default) 
+table(loans_bi_train$default) 
 
-loans.m2<-glm(formula = default ~., data = loans2_train, family = 'binomial')
+loans.m2<-glm(formula = default ~., data = loans2_train, family = 'binomial') #Getting Perfect Separation??
 summary(loans.m2)
 
-logistic_prob<-predict(loans.m2,loans2_test)
-logistic_prediction<-ifelse(logistic_prob>.28951,1,0)
-confusionMatrix(logistic_prediction,loans2_test$default) #Put this in the Presentaiton
+logistic_prob<-predict(loans.m2,loans2_test, type = 'response')
+logistic_prediction<-ifelse(logistic_prob>.2306,1,0)
+confusionMatrix(logistic_prediction,loans2_test$default) 
 ```
 
 ###REGRESSION ANALYSIS
@@ -177,31 +181,29 @@ confusionMatrix(logistic_prediction,loans2_test$default) #Put this in the Presen
 
 ```{r}
 #KNN --- Not a good model because binary data not good for establishing distance
-library(caret)
 library(gmodels)
 library(class)
+loans_knn<-as.numeric(knn(train = loans_bi_train,test = loans_bi_test, cl=loans_bi_train_labels))
+loans_knn_pred<-ifelse()
+confusionMatrix(loans_knn,loans_bi_test$default, positive = '1')
 
-loans_bi<-as.data.frame(model.matrix(~.-1,data=loans2))
+loans_bi<-as.data.frame(model.matrix(~.-1,data=loans))
 loans_bi$default<-factor(loans_bi$default)
 set.seed(12345)
-loans_bi_rand<- loans_bi[order(runif(5538)), ]
-loans_bi_train<-loans_bi_rand[1:3800,]
-loans_bi_test<-loans_bi_rand[3801:5538,]
-loans_bi_train_labels<-loans_bi_rand[1:3800,1]
-loans_bi_test_labels<-loans_bi_rand[3801:5538,1]
+loans_bi_rand<- loans_bi[order(runif(17941)), ]
+loans_bi_train<-loans_bi_rand[1:12558,]
+loans_bi_test<-loans_bi_rand[12559:17941,]
+loans_bi_train_labels<-loans_bi_rand[1:12558,1]
+loans_bi_test_labels<-loans_bi_rand[12559:17941,1]
 table(loans_bi_test$default) 
 table(loans_bi_train$default) 
-loans_bi_knn<-knn(train = loans_bi_train,test = loans_bi_test, cl=loans_bi_train_labels)
-CrossTable(x=loans_bi_test_labels,y=loans_bi_knn, prop.chisq = F)
-confusionMatrix(loans_bi_knn,loans_bi_test$default, positive = '1')
-
 ```
 KNN
   The KNN is not good because a large amount of our data is categorical and therefore binary when converted into dummy variables. Dummy varaibles are very bad for calculating the distances required by the KNN alogrithm and therfore we see very poor performance.
 
 ```{r}
 #ANN -- Better Algorithm for Binary Inputs
-loansDT1<-train(default ~ ., data = loans_bi_train, method='nnet' )
+loansDT1<-train(default ~ ., data = loans_bi_train, method='nnet', trace = 0 )
 loansDT_prediction<-predict(loansDT1,loans_bi_test)
 confusionMatrix(loansDT_prediction,loans_bi_test$default)
 
