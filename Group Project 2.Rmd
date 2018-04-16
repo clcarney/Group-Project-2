@@ -211,7 +211,7 @@ library(C50)
 loans_train_n$default1<-factor(loans_train_n$default1)
 loans_test_n$default1<-factor(loans_test_n$default1)
 set.seed(123)
-rf1<-randomForest(default~.,data = loans_train)
+rf1<-randomForest(default1~.,data = loans_train_n)
 rf1
 
 dt1<-C5.0(loans_train_n[-1],loans_train_n$default1)
