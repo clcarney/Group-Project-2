@@ -53,6 +53,7 @@ loans$borrower_city<-NULL
 loans$borrower_state<-NULL
 #Create Default variable
 loans$default<-ifelse(loans$loan_status_description=='DEFAULTED'|loans$loan_status_description=='CHARGEOFF',1,0)
+loans$default<-as.factor(loans$default)
 #Remove in Progress Loans -- Provide no information about Succesfull Payment or Defualts
 loans<-loans[!(loans$loan_status_description=='CURRENT'),]
 #Remove "unknown" data at time of interest rate determination, and data that we cannot interpret
@@ -64,10 +65,14 @@ loans$listing_monthly_payment<-NULL
 loans$prosper_rating<-NULL
 loans$prosper_score<-NULL
 loans$listing_category_id<-NULL
-
-
+#Clean Level Names for formula building
+levels(loans$scorex)<-c("600","600-619","620-639","640-649","650-664","665-689","690-701","702-723","724-747","748-777","778")
+levels(loans$income_range_description)<-c("_0_ ","1-24999","100000","25000-49999","50000-74999","75000-99999","Notemployed")
+#Logicals to Factors for model input
+loans$income_verifiable<-factor(loans$income_verifiable)
+loans$is_homeowner<-factor(loans$is_homeowner)
 #Observe Skew
-table(loans$default) #Defaults are only approx 4% of data --- We need to adjust for this.
+table(loans$default)
 loans_completed<-subset(loans,loans$default==0)
 loansDefualted<-subset(loans,loans$default==1) #Only Defaulted Loans
 
@@ -109,37 +114,6 @@ hist(loansDefualted$credit_age, main = "Default vs Credit Age", xlab = "Credit A
 par(op)
 ```
 
-```{r}
-#Linear Regression -- Copied From Class --- Need to Redo #Do we have to keep this?
-listings<-read.csv('Listings2013.csv')
-str(listings)
-library(lubridate)
-library(lmtest)
-
-#Clean
-listings$loan_status<-factor(listings$loan_status)
-listings$loan_origination_date<-mdy(listings$loan_origination_date)
-listings$occupation<-NULL   
-listings$borrower_city<-NULL
-listings$borrower_state<-NULL
-listings$first_recorded_credit_line<-NULL
-listings$principal_balance<-NULL
-listings$is_homeowner<-as.numeric(listings$is_homeowner)
-listings$income_verifiable<-as.numeric(listings$income_verifiable)
-
-listings.m<-lm(formula = borrower_rate ~ . , data = listings)
-summary(listings.m)
-
-#Drop Insignificant Variables
-attach(listings)
-listings2<-subset(listings,select = -c(income_range,income_range_description,months_employed,current_delinquencies,delinquencies_last7_years,public_records_last12_months,credit_lines_last7_years,amount_delinquent,installment_balance,real_estate_balance,revolving_balance,real_estate_payment,revolving_available_percent,satisfactory_accounts,was_delinquent_derog,delinquencies_over60_days, loan_status_description,dti_wprosper_loan,number_of_days))
-
-listings2.m<-lm(formula = borrower_rate ~ . , data = listings2)
-summary(listings2.m)
-
-
-```
-
 
 ```{r}
 #Logistic Regression
@@ -150,14 +124,14 @@ summary(loans.m1) #Need to do some removing of conflicting variables
 
 full<-glm(formula = default~.,data = loans, family = 'binomial')
 null<-glm(formula = default~1,data = loans, family = 'binomial')
-forwardSteps<-step(null,scope = list(lower = null, upper = full),data = loans, direction = 'forward')
+#forwardSteps<-step(null,scope = list(lower = null, upper = full),data = loans, direction = 'forward')
 
 loans2<-subset(loans,select = c(default, scorex, listing_term, dti_wprosper_loan, income_verifiable,
     income_range_description, lender_indicator, inquiries_last6_months,
     credit_lines_last7_years, total_open_revolving_accounts, employment_status_description, current_delinquencies,    public_records_last12_months, is_homeowner, amount_funded, delinquencies_over60_days,  
     installment_balance, stated_monthly_income, monthly_debt, open_credit_lines))
 
-#Split Data - Make Bianry
+#Split Data 
 
 set.seed(12345)
 loans_rand<- loans2[order(runif(17941)), ]
@@ -165,49 +139,88 @@ loans_train<-loans_rand[1:12558,]
 loans_test<-loans_rand[12559:17941,]
 loans_train_labels<-loans_rand[1:12558,1]
 loans_test_labels<-loans_rand[12559:17941,1]
-table(loans_bi_test$default) 
-table(loans_bi_train$default) 
+table(loans_test$default) 
+table(loans_train$default) 
 
-loans.m2<-glm(formula = default ~., data = loans2_train, family = 'binomial') #Getting Perfect Separation??
+loans.m2<-glm(formula = default ~., data = loans_train, family = 'binomial') #Getting Perfect Separation??
 summary(loans.m2)
 
-logistic_prob<-predict(loans.m2,loans2_test, type = 'response')
-logistic_prediction<-ifelse(logistic_prob>.2306,1,0)
-confusionMatrix(logistic_prediction,loans2_test$default) 
+logistic_prob<-predict(loans.m2,loans_test, type = 'response')
+logistic_prediction<-ifelse(logistic_prob>.2386,1,0)
+confusionMatrix(logistic_prediction,loans_test$default) 
 ```
 
 ###REGRESSION ANALYSIS
   the initial, full logistic regression resulted in few signifigant predictors, suggesting that certain variables be removed. While we had some knowledge of what financial predictors may be helpful in determining default probability, we determined it would be better to statistically evaluate significane of each predictor and remove variables as needed, then assess the validity of the result. A stepwise regression was then performed in both directions to determine the best predictors to include in the model to reach maximum significance. They included thirteen variables that encompassed properties of many other variables in the data set (i.e. income_range_description includes informaiton from occupation and stated income). This submodel also has the lowest AIC of any combination of variables in the original full model, suggesting it is a better indicator of default probability. Thes varibales were then transfered to a new data frame to be fed into preciditive models.
 
-```{r}
-#KNN --- Not a good model because binary data not good for establishing distance
-library(gmodels)
-library(class)
-loans_knn<-as.numeric(knn(train = loans_bi_train,test = loans_bi_test, cl=loans_bi_train_labels))
-loans_knn_pred<-ifelse()
-confusionMatrix(loans_knn,loans_bi_test$default, positive = '1')
-
-loans_bi<-as.data.frame(model.matrix(~.-1,data=loans))
-loans_bi$default<-factor(loans_bi$default)
-set.seed(12345)
-loans_bi_rand<- loans_bi[order(runif(17941)), ]
-loans_bi_train<-loans_bi_rand[1:12558,]
-loans_bi_test<-loans_bi_rand[12559:17941,]
-loans_bi_train_labels<-loans_bi_rand[1:12558,1]
-loans_bi_test_labels<-loans_bi_rand[12559:17941,1]
-table(loans_bi_test$default) 
-table(loans_bi_train$default) 
-```
-KNN
-  The KNN is not good because a large amount of our data is categorical and therefore binary when converted into dummy variables. Dummy varaibles are very bad for calculating the distances required by the KNN alogrithm and therfore we see very poor performance.
 
 ```{r}
 #ANN -- Better Algorithm for Binary Inputs
-loansDT1<-train(default ~ ., data = loans_bi_train, method='nnet', trace = 0 )
-loansDT_prediction<-predict(loansDT1,loans_bi_test)
-confusionMatrix(loansDT_prediction,loans_bi_test$default)
+#Binary Data
+library(neuralnet)
+loans_n<-as.data.frame(model.matrix(~.-1,data=loans2))
+loans_n$default0<-NULL
+names(loans_n) = gsub(pattern<- "-", replacement = "_", x = names(loans_n))
+names(loans_n) = gsub(pattern<- " ", replacement = "_", x = names(loans_n))
+loans_rand_n<- loans_n[order(runif(17941)), ]
+loans_train_n<-loans_rand_n[1:12558,]
+loans_test_n<-loans_rand_n[12559:17941,]
+loans_train_labels_n<-loans_rand_n[1:12558,1]
+loans_test_labels_n<-loans_rand_n[12559:17941,1]
+table(loans_test_n$default) 
+table(loans_train_n$default) 
+
+nnformula <- colnames(loans_n) %>% {as.formula(paste("default1 ~", paste(.[!. %in% "default1"], collapse = " + ")))}
+
+loans_ann<-neuralnet(formula = nnformula, data = loans_train_n)
+model_results<-compute(loans_ann,loans_test_n[2:40])
+loans_ann_prob<-model_results$net.result
+loans_ann_prediction<-ifelse(loans_ann_prob>.239,1,0)
+confusionMatrix(loans_ann_prediction,loans_test_n$default1)
+
+loans_ann2<-loans_ann<-neuralnet(formula = nnformula, data = loans_train_n, hidden = c(3,2), stepmax = 2e6)
+model_results2<-compute(loans_ann2,loans_test_n[2:40])
+loans_ann2_prob<-model_results2$net.result
+loans_ann2_prediction<-ifelse(loans_ann2_prob>.239,1,0)
+confusionMatrix(loans_ann2_prediction,loans_test_n$default1)
 
 ```
+#ANN ANALYSIS
+WRITE STUFF HERE
+
+###SVM
+```{r}
+library(kernlab)
+#SVM
+svm1<-ksvm(default ~.,data=loans_train, kernel='tanhdot')
+svm1_pred<-predict(svm1,loans_train)
+confusionMatrix(svm1_pred,loans_train$default)
+
+svm2<-ksvm(default ~.,data=loans_train, kernel='vanilladot')
+svm2_pred<-predict(svm2,loans_train)
+confusionMatrix(svm2_pred,loans_train$default)
+
+svm3<-ksvm(default ~.,data=loans_train, kernel='rbfdot')
+svm3_pred<-predict(svm3,loans_train)
+confusionMatrix(svm3_pred,loans_train$default)
+```
+###Decision Tree
+```{r}
+library(randomForest)
+library(C50)
+loans_train_n$default1<-factor(loans_train_n$default1)
+loans_test_n$default1<-factor(loans_test_n$default1)
+set.seed(123)
+rf1<-randomForest(default~.,data = loans_train)
+rf1
+
+dt1<-C5.0(loans_train_n[-1],loans_train_n$default1)
+summary(dt1)
+dt1_predict<-predict(dt1,loans_test_n)
+confusionMatrix(dt1_predict,loans_test_n$default1)
+```
+
+
 
 
 
